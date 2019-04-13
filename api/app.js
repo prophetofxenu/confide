@@ -1,6 +1,7 @@
 var createError = require('http-errors');
 var express = require('express');
 var path = require('path');
+var bodyParser = require('body-parser');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 
@@ -8,6 +9,10 @@ var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
 
 var app = express();
+
+var mongoose = require('mongoose');
+mongoose.connect('mongodb://127.0.0.1/confide', {useNewUrlParser: true});
+mongoose.promise = global.Promise;
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));

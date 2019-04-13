@@ -109,6 +109,17 @@ bool verifyUser(CURL *curl) {
 	(*j)["password"] = password;
 	(*j)["email"] = email;
 
+	post(curl, j);
+
+	return true;
+	
+}
+
+void get(CURL *curl) {
+
+}
+
+void post(CURL *curl, json* j) {
 	struct curl_slist *list = nullptr;
 	list = curl_slist_append(list, "Content-Type: application/json; charset=utf-8");
 
@@ -131,20 +142,4 @@ bool verifyUser(CURL *curl) {
 	if (res != CURLE_OK) {
 		std::cout << curl_easy_strerror(res) << std::endl;
 	}
-
-	return true;
-	
-}
-
-void get(CURL *curl) {
-
-}
-
-void post(CURL *curl, std::string jsonString) {
-	struct curl_slist *list = nullptr;
-	list = curl_slist_append(list, "Content-Type: application/json");
-
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonString);
 }

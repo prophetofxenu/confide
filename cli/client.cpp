@@ -6,9 +6,11 @@
 
 #include "json.hpp"
 
+#include <cstring>
+
 using json = nlohmann::json;
 
-#define PAPA_URL "http://google.com"
+#define PAPA_URL "http://localhost:3000/newuser"
 
 
 void init(CURL *curl);
@@ -102,16 +104,29 @@ bool verifyUser(CURL *curl) {
 	std::cout << "Email: ";
 	std::cin >> email;
 
-	jsonString = "{ \"username\": "+username+", \"password\":"+password+", \"email\":"+email+" }";
+	json *j = new json;
+	(*j)["username"] = username;
+	(*j)["password"] = password;
+	(*j)["email"] = email;
 
 	struct curl_slist *list = nullptr;
-	list = curl_slist_append(list, "Content-Type: application/json");
+	list = curl_slist_append(list, "Content-Type: application/json; charset=utf-8");
 
+	curl_easy_setopt(curl, CURLOPT_URL, PAPA_URL);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonString);
+
+	// keep the string alive
+	char *s = static_cast<char *>(malloc(j->dump().length() + 1));
+	memcpy(s, j->dump().c_str(), j->dump().length());
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, s);
+	//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonString.c_str());
+	//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "{\"username\":\"yeet\"}");
 
 	CURLcode res = curl_easy_perform(curl);
+
+	free(s);
+	free(list);
 
 	if (res != CURLE_OK) {
 		std::cout << curl_easy_strerror(res) << std::endl;

@@ -14,10 +14,10 @@ using json = nlohmann::json;
 #define PAPA_URL "http://localhost:3000/newuser"
 
 
-struct resdata {
+typedef struct resdata {
 	char *mem;
 	size_t size;
-};
+} ResData;
 
 void init(CURL *curl);
 bool validCode(std::string s);
@@ -60,8 +60,9 @@ void init(CURL *curl) {
 
 	CURLcode res;
 
-	struct resdata *rd;
-	rd->mem = static_cast<char *>(malloc(1));
+	ResData *rd = new ResData;
+	// rd->mem = static_cast<char *>(malloc(1));
+	rd->mem = nullptr;
 	rd->size = 1;
 
 	std::string usr_input;
@@ -82,6 +83,11 @@ void init(CURL *curl) {
 		o << std::setw(4) << j << std::endl;
 	} else if (usr_input.substr(0,2) == "UP") {
 		if (usr_input.length() < 4) {
+			std::cout << "Not a valid request" << std::endl;
+			init(curl);
+			return;
+		}
+		if (!loginUser(curl, rd)) {
 			std::cout << "User info not valid" << std::endl;
 			init(curl);
 			return;
@@ -109,7 +115,7 @@ void init(CURL *curl) {
 size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
 
 	struct resdata *rd = static_cast<struct resdata *>(userdata);
-	rd->mem = static_cast<char *>(realloc(rd->mem, nmemb));
+	rd->mem = static_cast<char *>(malloc(nmemb));
 	memcpy(rd->mem, ptr, nmemb);
 	rd->size = nmemb;
 	

@@ -34,7 +34,7 @@ function hashPasswordAndCreateUser(username, password, email) {
 function createUser(username, email) {
 
     return function(err, hash) {
-        if (err) { return next(err); }
+        if (err) { console.log(err); }
 
         var user = new User({
             username: username,
@@ -170,6 +170,62 @@ exports.getConf = function(req, res, next) {
             content: content
         });
 
+    });
+
+}
+
+function findUserAndCheckIfValid(username, password, email, callback) {
+
+    if (email == null) {
+        User.find({
+            username: username
+        }).exec(hashPasswordAndCheckIfValidUser(password, callback));
+    } else {
+        User.find({
+            username: username,
+            email: email
+        }).exec(hashPasswordAndCheckIfValidUser(password, callback));
+    }
+
+}
+
+function hashPasswordAndCheckIfValidUser(password, callback) {
+
+    return function(err, result) {
+        if (err) { console.log(err); }
+        
+        if (result.length == 0) {
+            callback(null, -1);
+        } else {
+            bcrypt.compare(password, result[0].password, callback);
+        }
+    }
+
+}
+
+exports.validUser = function(req, res, next) {
+
+    var j = JSON.parse(req.params.json);
+
+    var email;
+    if (j.email === undefined)
+        email = null;
+    else
+        email = j.email;
+
+    findUserAndCheckIfValid(j.username, j.password, email, function(err, result) {
+        if (err) { return next(err); }
+
+        if (result === true) {
+            res.json({
+                result: 0
+            });
+        } else {
+            res.json({
+                result: -1,
+                message: "User not found"
+            });
+        }
     });
 
 }

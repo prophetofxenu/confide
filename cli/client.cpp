@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <locale>
 
 #include <curl/curl.h>
 
@@ -10,8 +11,12 @@ using json = nlohmann::json;
 #define PAPA_URL "http://google.com"
 
 
-void init();
+void init(CURL *curl);
 bool validCode(std::string s);
+size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
+bool verifyUser(CURL *curl);
+void get(CURL *curl);
+void post(CURL *curl);
 
 int main() {
 
@@ -32,9 +37,9 @@ int main() {
 
 	CURL *curl = curl_easy_init();
 	if (curl) {
-		init();
+		init(curl);
 		CURLcode res;
-		curl_easy_setopt(curl, CURLOPT_URL, PAPA_URL);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 		res = curl_easy_perform(curl);
 		std::cout << res << std::endl;
 		curl_easy_cleanup(curl);
@@ -46,29 +51,85 @@ int main() {
 
 }
 
-void init() {
+void init(CURL *curl) {
 
 	std::string usr_input;
-
-	std::cout << "HELP - list of available commands" << std::endl;
 	std::cin >> usr_input;
-	while (!validCode(usr_input)) {
+
+	if (usr_input.substr(0,2) == "DL") {
+		if (!verifyUser(curl)) {
+			std::cout << "User info not valid" << std::endl;
+		}
+		get(curl);
+	} else if (usr_input.substr(0,2) == "UP") {
+		int fileIndex = 2;
+		for (; usr_input[fileIndex] == ' '; fileIndex++);
+		// post(curl, j);
+	} else if (usr_input.substr(0,4) == "HELP") {
+		std::cout << "Commands\n--------------------------------------" << std::endl;
+		std::cout << "DL - retrieve config file from server" << std::endl;
+		std::cout << "Syntax: DL [FILENAME]" << std::endl;
+		std::cout << "UP - upload config file to server" << std::endl;
+		std::cout << "Syntax: UP [FILENAME]" << std::endl;
+	} else if (usr_input.substr(0,3) == "PROP") {
+
+	} else {
 		std::cout << "Not a valid request" << std::endl;
-		std::cin >> usr_input;
-	}
-
-	
-
-	if (usr_input == "GET") {
-	
-	} else if (usr_input == "POST") {
-
-	} else if (usr_input == "HELP") {
-
+		init(curl);
 	}
 
 }
 
 bool validCode(std::string s) {
 	if (s == "GET" || s == "POST" || s == "HELP") { return true; }
+}
+
+size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
+
+
+	
+	return nmemb;
+
+}
+
+bool verifyUser(CURL *curl) {
+	std::string username, password, email, jsonString;
+
+	std::cout << "Username: ";
+	std::cin >> username;
+	std::cout << "Password: ";
+	std::cin >> password;
+	std::cout << "Email: ";
+	std::cin >> email;
+
+	jsonString = "{ \"username\": "+username+", \"password\":"+password+", \"email\":"+email+" }";
+
+	struct curl_slist *list = nullptr;
+	list = curl_slist_append(list, "Content-Type: application/json");
+
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonString);
+
+	CURLcode res = curl_easy_perform(curl);
+
+	if (res != CURLE_OK) {
+		std::cout << curl_easy_strerror(res) << std::endl;
+	}
+
+	return true;
+	
+}
+
+void get(CURL *curl) {
+
+}
+
+void post(CURL *curl, std::string jsonString) {
+	struct curl_slist *list = nullptr;
+	list = curl_slist_append(list, "Content-Type: application/json");
+
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonString);
 }

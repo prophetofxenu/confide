@@ -11,8 +11,9 @@
 
 using json = nlohmann::json;
 
-#define PAPA_URL "http://localhost:3000/newuser"
+//#define PAPA_URL "http://localhost:3000"
 
+std::string PAPA_URL("http://localhost:3000");
 
 typedef struct resdata {
 	char *mem;
@@ -24,8 +25,9 @@ bool validCode(std::string s);
 size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
 bool loginUser(CURL *curl, struct resdata *rd);
 bool registerUser(CURL *curl, struct resdata *rd);
-std::string get(CURL *curl, struct resdata *rd);
-bool post(CURL *curl, struct resdata *rd, json* j);
+//std::string get(CURL *curl, struct resdata *rd);
+bool get(CURL *curl, std::string dest, struct resdata *rd, json *j);
+bool post(CURL *curl, std::string dest, struct resdata *rd, json* j);
 
 int main() {
 
@@ -74,13 +76,24 @@ void init(CURL *curl) {
 	}
 	if (usr_input.substr(0,2) == "DL") {
 		if (!loginUser(curl, rd)) {
-			std::cout << "User info not valid" << std::endl;
+			//std::cout << "User info not valid" << std::endl;
+			init(curl);
+			return;
+		} else {
+			json response = json::parse(rd->mem);
+			if (response["result"] == -1) {
+				std::cout << "User info not valid" << std::endl;
+			} else {
+				std::cout << "User info valid" << std::endl;
+			}
 			init(curl);
 			return;
 		}
+		/*
 		auto j = json::parse(get(curl, rd));
 		std::ofstream o(static_cast<std::string>(j["path"]));
 		o << std::setw(4) << j << std::endl;
+		*/
 	} else if (usr_input.substr(0,2) == "UP") {
 		if (usr_input.length() < 4) {
 			std::cout << "Not a valid request" << std::endl;
@@ -98,7 +111,7 @@ void init(CURL *curl) {
 		std::ifstream i(usr_input.substr(fileIndex, endIndex-fileIndex));
 		json j;
 		i >> j;
-		post(curl, rd, &j);
+		post(curl, std::string("yeet"), rd, &j);
 	} else if (usr_input.substr(0,4) == "HELP") {
 		std::cout << "Commands\n--------------------------------------" << std::endl;
 		std::cout << "DL - retrieve config file from server" << std::endl;
@@ -117,6 +130,7 @@ size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
 	struct resdata *rd = static_cast<struct resdata *>(userdata);
 	rd->mem = static_cast<char *>(malloc(nmemb));
 	memcpy(rd->mem, ptr, nmemb);
+	rd->mem[nmemb] = '\0';
 	rd->size = nmemb;
 	
 	return nmemb;
@@ -135,7 +149,7 @@ bool loginUser(CURL *curl, struct resdata *rd) {
 	(*j)["username"] = username;
 	(*j)["password"] = password;
 
-	return post(curl, rd, j);
+	return get(curl, std::string("validuser"), rd, j);
 }
 
 bool registerUser(CURL *curl, struct resdata *rd) {
@@ -153,11 +167,14 @@ bool registerUser(CURL *curl, struct resdata *rd) {
 	(*j)["password"] = password;
 	(*j)["email"] = email;
 
-	return post(curl, rd, j);
+	return post(curl, std::string("newuser"), rd, j);
 }
 
-std::string get(CURL *curl, struct resdata *rd) {
-	curl_easy_setopt(curl, CURLOPT_URL, PAPA_URL);
+bool get(CURL *curl, std::string dest, struct resdata *rd, json *j) {
+
+	std::string full_dest = PAPA_URL + "/" + dest + "/" + j->dump();
+
+	curl_easy_setopt(curl, CURLOPT_URL, full_dest.c_str());
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, static_cast<void *>(rd));
 
@@ -165,16 +182,17 @@ std::string get(CURL *curl, struct resdata *rd) {
 
 	if (res != CURLE_OK) {
 		std::cout << curl_easy_strerror(res) << std::endl;
-		return rd->mem;
+		return false;
 	}
-	return rd->mem;
+	return true;
+
 }
 
-bool post(CURL *curl, struct resdata *rd, json* j) {
+bool post(CURL *curl, std::string dest, struct resdata *rd, json* j) {
 	struct curl_slist *list = nullptr;
 	list = curl_slist_append(list, "Content-Type: application/json; charset=utf-8");
 
-	curl_easy_setopt(curl, CURLOPT_URL, PAPA_URL);
+	curl_easy_setopt(curl, CURLOPT_URL, PAPA_URL + dest);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, static_cast<void *>(rd));
@@ -183,8 +201,6 @@ bool post(CURL *curl, struct resdata *rd, json* j) {
 	char *s = static_cast<char *>(malloc(j->dump().length() + 1));
 	memcpy(s, j->dump().c_str(), j->dump().length());
 	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, s);
-	//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, jsonString.c_str());
-	//curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "{\"username\":\"yeet\"}");
 
 	CURLcode res = curl_easy_perform(curl);
 

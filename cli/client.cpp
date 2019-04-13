@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <locale>
+#include <iomanip>
 
 #include <curl/curl.h>
 
@@ -13,12 +14,18 @@ using json = nlohmann::json;
 #define PAPA_URL "http://localhost:3000/newuser"
 
 
+struct resdata {
+	char *mem;
+	size_t size;
+};
+
 void init(CURL *curl);
 bool validCode(std::string s);
 size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
-bool verifyUser(CURL *curl);
-void get(CURL *curl);
-void post(CURL *curl);
+bool loginUser(CURL *curl, struct resdata *rd);
+bool registerUser(CURL *curl, struct resdata *rd);
+std::string get(CURL *curl, struct resdata *rd);
+bool post(CURL *curl, struct resdata *rd, json* j);
 
 int main() {
 
@@ -40,10 +47,6 @@ int main() {
 	CURL *curl = curl_easy_init();
 	if (curl) {
 		init(curl);
-		CURLcode res;
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
-		res = curl_easy_perform(curl);
-		std::cout << res << std::endl;
 		curl_easy_cleanup(curl);
 	} else {
 		std::cout << "Connection to server cannot be established." << std::endl;
@@ -55,26 +58,47 @@ int main() {
 
 void init(CURL *curl) {
 
+	CURLcode res;
+
+	struct resdata *rd;
+	rd->mem = static_cast<char *>(malloc(1));
+	rd->size = 1;
+
 	std::string usr_input;
 	std::cin >> usr_input;
-
+	if (usr_input.length() < 2) {
+		std::cout << "Not a valid request" << std::endl;
+		init(curl);
+		return;
+	}
 	if (usr_input.substr(0,2) == "DL") {
-		if (!verifyUser(curl)) {
+		if (!loginUser(curl, rd)) {
 			std::cout << "User info not valid" << std::endl;
+			init(curl);
+			return;
 		}
-		get(curl);
+		auto j = json::parse(get(curl, rd));
+		std::ofstream o(static_cast<std::string>(j["path"]));
+		o << std::setw(4) << j << std::endl;
 	} else if (usr_input.substr(0,2) == "UP") {
-		int fileIndex = 2;
+		if (usr_input.length() < 4) {
+			std::cout << "User info not valid" << std::endl;
+			init(curl);
+			return;
+		}
+		int fileIndex = 2, endIndex;
 		for (; usr_input[fileIndex] == ' '; fileIndex++);
-		// post(curl, j);
+		for (endIndex = fileIndex; usr_input[endIndex] != ' ' || usr_input[endIndex] != '\0'; endIndex++);
+		std::ifstream i(usr_input.substr(fileIndex, endIndex-fileIndex));
+		json j;
+		i >> j;
+		post(curl, rd, &j);
 	} else if (usr_input.substr(0,4) == "HELP") {
 		std::cout << "Commands\n--------------------------------------" << std::endl;
 		std::cout << "DL - retrieve config file from server" << std::endl;
 		std::cout << "Syntax: DL [FILENAME]" << std::endl;
 		std::cout << "UP - upload config file to server" << std::endl;
 		std::cout << "Syntax: UP [FILENAME]" << std::endl;
-	} else if (usr_input.substr(0,3) == "PROP") {
-
 	} else {
 		std::cout << "Not a valid request" << std::endl;
 		init(curl);
@@ -82,20 +106,34 @@ void init(CURL *curl) {
 
 }
 
-bool validCode(std::string s) {
-	if (s == "GET" || s == "POST" || s == "HELP") { return true; }
-}
-
 size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
 
-
+	struct resdata *rd = static_cast<struct resdata *>(userdata);
+	rd->mem = static_cast<char *>(realloc(rd->mem, nmemb));
+	memcpy(rd->mem, ptr, nmemb);
+	rd->size = nmemb;
 	
 	return nmemb;
 
 }
 
-bool verifyUser(CURL *curl) {
-	std::string username, password, email, jsonString;
+bool loginUser(CURL *curl, struct resdata *rd) {
+	std::string username, password;
+
+	std::cout << "Username: ";
+	std::cin >> username;
+	std::cout << "Password: ";
+	std::cin >> password;
+
+	json *j = new json;
+	(*j)["username"] = username;
+	(*j)["password"] = password;
+
+	return post(curl, rd, j);
+}
+
+bool registerUser(CURL *curl, struct resdata *rd) {
+	std::string username, password, email;
 
 	std::cout << "Username: ";
 	std::cin >> username;
@@ -109,23 +147,31 @@ bool verifyUser(CURL *curl) {
 	(*j)["password"] = password;
 	(*j)["email"] = email;
 
-	post(curl, j);
-
-	return true;
-	
+	return post(curl, rd, j);
 }
 
-void get(CURL *curl) {
+std::string get(CURL *curl, struct resdata *rd) {
+	curl_easy_setopt(curl, CURLOPT_URL, PAPA_URL);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, static_cast<void *>(rd));
 
+	CURLcode res = curl_easy_perform(curl);
+
+	if (res != CURLE_OK) {
+		std::cout << curl_easy_strerror(res) << std::endl;
+		return rd->mem;
+	}
+	return rd->mem;
 }
 
-void post(CURL *curl, json* j) {
+bool post(CURL *curl, struct resdata *rd, json* j) {
 	struct curl_slist *list = nullptr;
 	list = curl_slist_append(list, "Content-Type: application/json; charset=utf-8");
 
 	curl_easy_setopt(curl, CURLOPT_URL, PAPA_URL);
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, static_cast<void *>(rd));
 
 	// keep the string alive
 	char *s = static_cast<char *>(malloc(j->dump().length() + 1));
@@ -141,5 +187,7 @@ void post(CURL *curl, json* j) {
 
 	if (res != CURLE_OK) {
 		std::cout << curl_easy_strerror(res) << std::endl;
+		return false;
 	}
+	return true;
 }

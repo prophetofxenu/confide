@@ -88,6 +88,74 @@ exports.newUser = function(req, res, next) {
 
 }
 
+function getUserConfs(username, password, callback) {
+
+    User.find({username: username})
+    .populate('configs')
+    .exec(authenticateAndGetConfs(password, callback));
+
+}
+
+function authenticateAndGetConfs(password, callback) {
+
+    return function(err, result) {
+        if (err) { console.log(err); }
+
+        if (result.length == 0) {
+             callback(null, -1); // user not found
+        } else {
+            var user = result[0];
+            bcrypt.compare(password, user.password, verifyAuthenticationAndGetConfs(user, callback))
+        }
+    }
+
+}
+
+function verifyAuthenticationAndGetConfs(user, callback) {
+
+    return function(err, result) {
+        if (err) { console.log(err); }
+
+        if (!result) {
+            callback(null, -2); // wrong password
+        } else {
+            callback(null, user.configs);
+        }
+    }
+
+}
+
+exports.listConfs = function(req, res, next) {
+
+    var j = JSON.parse(req.params.json);
+
+    getUserConfs(j.username, j.password, function(err, result) {
+        if (err) { return next(err); }
+
+        if (result == -1) { // user not found
+            res.json({
+                result: result,
+                message: "User not found"
+            });
+        } else if (result == -2) {
+            res.json({
+                result: result,
+                message: "Wrong password"
+            });
+        } else {
+            var configNames = [];
+            for (c of result) {
+                configNames.push(c.name);
+            }
+            res.json({
+                result: 0,
+                configs: configNames
+            });
+        }
+    });
+
+}
+
 function getUser(username, password, configName, callback) {
 
     User.find({

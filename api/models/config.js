@@ -13,4 +13,16 @@ var ConfigSchema = new Schema(
     }
 )
 
+ConfigSchema
+.virtual('created_formatted')
+.get(function() {
+    return moment(this.created).format('MM-DD-YYYY');
+});
+
+ConfigSchema
+.virtual('modified_formatted')
+.get(function() {
+    return moment(this.modified).format('MM-DD-YYYY');
+});
+
 module.exports = mongoose.model('Config', ConfigSchema);

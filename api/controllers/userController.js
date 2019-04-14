@@ -235,8 +235,11 @@ exports.getConf = function(req, res, next) {
         } else {
             res.json({
                 result: 0,
+                name: result.name,
                 path: result.path,
-                content: result.content
+                content: result.content,
+                created: result.created_formatted,
+                modified: result.modified_formatted
             });
         }
     });

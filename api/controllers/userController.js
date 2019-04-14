@@ -175,17 +175,17 @@ exports.getConf = function(req, res, next) {
 
 }
 
-function getUserConfigs(username, password, callback) {
+function getUserConfigs(username, password, name, callback) {
 
     User.find({
         username: username
     })
     .populate('configs')
-    .exec(getUserConfigsAuth(password, callback));
+    .exec(getUserConfigsAuth(password, name, callback));
 
 }
 
-function getUserConfigsAuth(password, callback) {
+function getUserConfigsAuth(password, name, callback) {
 
     return function(err, result) {
         if (err) { console.log(err); }
@@ -194,22 +194,27 @@ function getUserConfigsAuth(password, callback) {
             callback(null, -1); // user not found
         } else {
             var user = result[0];
-            bcrypt.compare(password, user.password, validateAuthAndGetConfigs(user, callback));
+            bcrypt.compare(password, user.password, checkIfConfigExists(user, name, callback));
         }
     }
 
 }
 
-function validateAuthAndGetConfigs(user, callback) {
+function checkIfConfigExists(user, name, callback) {
 
     return function(err, result) {
-
         if (err) { console.log(err); }
 
-        if (result) {
-            callback(null, user);
+        if (!result) { // wrong password
+            callback(null, -2);
         } else {
-            callback(null, -2); // wrong password
+            var config = null;
+            for (c of user.configs) {
+                if (c.name == name) {
+                    config = c;
+                }
+            }
+            callback(null, { user: user, config: config });
         }
     }
 
@@ -217,7 +222,7 @@ function validateAuthAndGetConfigs(user, callback) {
 
 exports.addConf = function(req, res, next) {
 
-    getUserConfigs(req.body.username, req.body.password, function(err, result) {
+    getUserConfigs(req.body.username, req.body.password, req.body.name, function(err, result) {
         if (err) { return next(err); }
 
         if (result == -1) { // user not found
@@ -232,26 +237,43 @@ exports.addConf = function(req, res, next) {
             });
         } else {
 
-            var config = new Config({
-                name: req.body.name,
-                path: req.body.path,
-                content: req.body.content,
-                created: new Date(),
-                modified: new Date()
-            });
+            if (result.config == null) { // config does not exist
+                var config = new Config({
+                    name: req.body.name,
+                    path: req.body.path,
+                    content: req.body.content,
+                    created: new Date(),
+                    modified: new Date()
+                });
 
-            config.save(function(err) {
-                if (err) { return next(err); }
-
-                result.configs.push(config._id);
-                User.findByIdAndUpdate(result._id, result, {}, function(err, result) {
+                config.save(function(err) {
                     if (err) { return next(err); }
+
+                    result.user.configs.push(config._id);
+                    User.findByIdAndUpdate(result.user._id, result.user, {}, function(err, result) {
+                        if (err) { return next(err); }
+
+                        res.json({
+                            result: 0
+                        });
+                    });
+                });
+            } else { // config already exists
+                console.log('config already exists');
+                result.config.content = req.body.content;
+                result.config.modified = new Date();
+                console.log(result.config);
+
+                Config.findOneAndUpdate({_id: result.config._id}, {content: req.body.content, modified: new Date()}, {}, function(err, result) {
+                    if (err) { return next(err); }
+
+                    console.log(result);
 
                     res.json({
                         result: 0
                     });
                 });
-            });
+            }
 
         }
     });

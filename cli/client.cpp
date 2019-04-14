@@ -120,18 +120,14 @@ void init(CURL *curl) {
 		}
 
 		if (usr_input.substr(0,2) == "LS") {
-			std::cout << "Filename: ";
-			std::cin >> name;
 			json *j = new json;
 			(*j)["username"] = username;
 			(*j)["password"] = password;
-			(*j)["name"] = name;
 			get(curl, std::string("listconfs"), rd, j);
 			json response = json::parse(rd->mem);
 			if (response["result"] == -1) {
 				std::cout << "File transfer incomplete" << std::endl;
 			} else {
-				std::cout << "File transfer complete" << std::endl;
 				std::cout << response["configs"] << std::endl;
 			}
 		} else if (usr_input.substr(0,2) == "VC") {
@@ -144,9 +140,12 @@ void init(CURL *curl) {
 			get(curl, std::string("config"), rd, j);
 			json response = json::parse(rd->mem);
 			if (response["result"] == -1) {
-				std::cout << "File transfer incomplete" << std::endl;
+				std::cout << "User not found" << std::endl;
+			} else if (response["result"] == -2) {
+				std::cout << "Wrong password" << std::endl;
+			} else if (response["result"] == -3) {
+				std::cout << "File not found" << std::endl;
 			} else {
-				std::cout << "File transfer complete" << std::endl;
 				std::cout << "Created: " << response["created"] << std::endl;
 				std::cout << "Last Modified: " << response["modified"] << std::endl;
 				std::cout << response["content"] << std::endl;
@@ -161,7 +160,11 @@ void init(CURL *curl) {
 			get(curl, std::string("config"), rd, j);
 			json response = json::parse(rd->mem);
 			if (response["result"] == -1) {
-				std::cout << "File transfer incomplete" << std::endl;
+				std::cout << "User not found" << std::endl;
+			} else if (response["result"] == -2) {
+				std::cout << "Wrong password" << std::endl;
+			} else if (response["result"] == -3) {
+				std::cout << "Config file not found" << std::endl;
 			} else {
 				std::cout << "File transfer complete" << std::endl;
 				std::ofstream o(static_cast<std::string>(response["path"]));
@@ -174,14 +177,15 @@ void init(CURL *curl) {
 			std::cin >> path;
 			std::ifstream i(path);
 			json *j = new json;
-			json f;
-			i >> f;
+			std::string c;
+			i >> c;
 			(*j)["username"] = username;
 			(*j)["password"] = password;
 			(*j)["name"] = name;
 			(*j)["path"] = path;
-			(*j)["content"] = f;
+			(*j)["content"] = c;
 			post(curl, std::string("addconfig"), rd, j);
+			std::cout << rd->mem << std::endl;
 			json response = json::parse(rd->mem);
 			if (response["result"] == -1) {
 				std::cout << "File transfer incomplete" << std::endl;

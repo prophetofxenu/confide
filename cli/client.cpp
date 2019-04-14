@@ -21,6 +21,7 @@ typedef struct resdata {
 } ResData;
 
 void init(CURL *curl);
+void displayCommands();
 bool validCode(std::string s);
 size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata);
 bool loginUser(CURL *curl, struct resdata *rd, std::string username, std::string password);
@@ -28,6 +29,7 @@ bool registerUser(CURL *curl, struct resdata *rd);
 //std::string get(CURL *curl, struct resdata *rd);
 bool get(CURL *curl, std::string dest, struct resdata *rd, json *j);
 bool post(CURL *curl, std::string dest, struct resdata *rd, json* j);
+std::string toUpper(std::string s);
 
 int main() {
 
@@ -67,106 +69,127 @@ void init(CURL *curl) {
 	rd->mem = nullptr;
 	rd->size = 1;
 
+	std::string username, password, name, path;
+
+	std::cout << "Login/Register" << std::endl;
+	std::cout << "LOG        REG" << std::endl;
 	while (1) {
 		std::string usr_input;
 		std::cin >> usr_input;
+		usr_input = toUpper(usr_input);
+		if (usr_input == "LOG") {
+			std::cout << "Username: ";
+			std::cin >> username;
+			std::cout << "Password: ";
+			std::cin >> password;
+			if (loginUser(curl, rd, username, password)) {
+				json response = json::parse(rd->mem);
+				if (response["result"] == -1) {
+					std::cout << "User info not valid" << std::endl;
+					continue;
+				} else {
+					std::cout << "User info valid" << std::endl;
+				}
+			} else { continue; }
+			break;
+		} else if (usr_input == "REG") {
+			if (registerUser(curl, rd)) {
+				json response = json::parse(rd->mem);
+				if (response["result"] == -1) {
+					std::cout << "User info not valid" << std::endl;
+					continue;
+				} else {
+					std::cout << "User info valid" << std::endl;
+				}
+			} else { continue; }
+			break;
+		} else {
+			std::cout << "Invalid input. Try again" << std::endl;
+		}
+	}
+
+	displayCommands();
+
+	while (1) {
+		std::string usr_input;
+		std::cin >> usr_input;
+		usr_input = toUpper(usr_input);
 		if (usr_input.length() < 2) {
 			std::cout << "Not a valid request" << std::endl;
 			continue;
 		}
-		if (usr_input.substr(0,2) == "LS") {
-			std::string username, password, name;
 
-			std::cout << "Username: ";
-			std::cin >> username;
-			std::cout << "Password: ";
-			std::cin >> password;
-			if (loginUser(curl, rd, username, password)) {
-				// json response = json::parse(rd->mem);
-				// if (response["result"] == -1) {
-				// 	std::cout << "User info not valid" << std::endl;
-				// } else {
-				// 	std::cout << "User info valid" << std::endl;
-				// 	for (int i = 0; i < response["entries"]; i++) {
-				// 		std::cout << "" << std::endl;
-				// 	}
-				// }
+		if (usr_input.substr(0,2) == "LS") {
+			std::cout << "Filename: ";
+			std::cin >> name;
+			json *j = new json;
+			(*j)["username"] = username;
+			(*j)["password"] = password;
+			(*j)["name"] = name;
+			get(curl, std::string("listconfs"), rd, j);
+			json response = json::parse(rd->mem);
+			if (response["result"] == -1) {
+				std::cout << "File transfer incomplete" << std::endl;
+			} else {
+				std::cout << "File transfer complete" << std::endl;
+				std::cout << response["configs"] << std::endl;
+			}
+		} else if (usr_input.substr(0,2) == "VC") {
+			std::cout << "Filename: ";
+			std::cin >> name;
+			json *j = new json;
+			(*j)["username"] = username;
+			(*j)["password"] = password;
+			(*j)["name"] = name;
+			get(curl, std::string("config"), rd, j);
+			json response = json::parse(rd->mem);
+			if (response["result"] == -1) {
+				std::cout << "File transfer incomplete" << std::endl;
+			} else {
+				std::cout << "File transfer complete" << std::endl;
+				std::cout << "Created: " << response["created"] << std::endl;
+				std::cout << "Last Modified: " << response["modified"] << std::endl;
+				std::cout << response["content"] << std::endl;
 			}
 		} else if (usr_input.substr(0,2) == "DL") {
-			std::string username, password, name;
-
-			std::cout << "Username: ";
-			std::cin >> username;
-			std::cout << "Password: ";
-			std::cin >> password;
-			if (loginUser(curl, rd, username, password)) {
-				json response = json::parse(rd->mem);
-				if (response["result"] == -1) {
-					std::cout << "User info not valid" << std::endl;
-				} else {
-					std::cout << "User info valid" << std::endl;
-					std::cout << "Filename: ";
-					std::cin >> name;
-					json *j = new json;
-					(*j)["username"] = username;
-					(*j)["password"] = password;
-					(*j)["name"] = name;
-					get(curl, std::string("config"), rd, j);
-					response = json::parse(rd->mem);
-					if (response["result"] == -1) {
-						std::cout << "File transfer incomplete" << std::endl;
-					} else {
-						std::cout << "File transfer complete" << std::endl;
-						std::ofstream o(static_cast<std::string>(response["path"]));
-						o << std::setw(4) << response["content"] << std::endl;
-					}
-				}
+			std::cout << "Filename: ";
+			std::cin >> name;
+			json *j = new json;
+			(*j)["username"] = username;
+			(*j)["password"] = password;
+			(*j)["name"] = name;
+			get(curl, std::string("config"), rd, j);
+			json response = json::parse(rd->mem);
+			if (response["result"] == -1) {
+				std::cout << "File transfer incomplete" << std::endl;
+			} else {
+				std::cout << "File transfer complete" << std::endl;
+				std::ofstream o(static_cast<std::string>(response["path"]));
+				o << std::setw(4) << response["content"] << std::endl;
 			}
 		} else if (usr_input.substr(0,2) == "UP") {
-			std::string username, password, name, path, content;
-
-			std::cout << "Username: ";
-			std::cin >> username;
-			std::cout << "Password: ";
-			std::cin >> password;
-			if (loginUser(curl, rd, username, password)) {
-				json response = json::parse(rd->mem);
-				if (response["result"] == -1) {
-					std::cout << "User info not valid" << std::endl;
-				} else {
-					std::cout << "User info valid" << std::endl;
-					std::cout << "Filename: ";
-					std::cin >> name;
-					std::cout << "Path: ";
-					std::cin >> path;
-					std::ifstream i(path);
-					json *j = new json;
-					json f;
-					i >> f;
-					(*j)["username"] = username;
-					(*j)["password"] = password;
-					(*j)["name"] = name;
-					(*j)["path"] = path;
-					(*j)["content"] = f;
-					post(curl, std::string("addconfig"), rd, j);
-					response = json::parse(rd->mem);
-					if (response["result"] == -1) {
-						std::cout << "File transfer incomplete" << std::endl;
-					} else {
-						std::cout << "File transfer complete" << std::endl;
-					}
-				}
+			std::cout << "Filename: ";
+			std::cin >> name;
+			std::cout << "Path: ";
+			std::cin >> path;
+			std::ifstream i(path);
+			json *j = new json;
+			json f;
+			i >> f;
+			(*j)["username"] = username;
+			(*j)["password"] = password;
+			(*j)["name"] = name;
+			(*j)["path"] = path;
+			(*j)["content"] = f;
+			post(curl, std::string("addconfig"), rd, j);
+			json response = json::parse(rd->mem);
+			if (response["result"] == -1) {
+				std::cout << "File transfer incomplete" << std::endl;
+			} else {
+				std::cout << "File transfer complete" << std::endl;
 			}
-		} else if (usr_input.substr(0,3) == "REG") {
-			registerUser(curl, rd);
 		} else if (usr_input.substr(0,4) == "HELP") {
-			std::cout << "\nCommands\n--------------------------------------" << std::endl;
-			std::cout << "LS - list available files" << std::endl;
-			std::cout << "DL - retrieve config file from server" << std::endl;
-			std::cout << "UP - upload config file to server" << std::endl;
-			std::cout << "REG - register an account" << std::endl;
-			std::cout << "EXIT - exits program" << std::endl;
-			std::cout << std::endl;
+			displayCommands();
 		} else if (usr_input.substr(0,4) == "EXIT") {
 			break;
 		} else {
@@ -174,6 +197,16 @@ void init(CURL *curl) {
 		}
 	}
 
+}
+
+void displayCommands() {
+	std::cout << "\nCommands\n--------------------------------------" << std::endl;
+	std::cout << "LS - list available files" << std::endl;
+	std::cout << "VC - view contents of a file" << std::endl;
+	std::cout << "DL - retrieve config file from server" << std::endl;
+	std::cout << "UP - upload config file to server" << std::endl;
+	std::cout << "EXIT - exits program" << std::endl;
+	std::cout << std::endl;
 }
 
 size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata) {
@@ -259,4 +292,13 @@ bool post(CURL *curl, std::string dest, struct resdata *rd, json* j) {
 		return false;
 	}
 	return true;
+}
+
+std::string toUpper(std::string s) {
+	for (int i = 0; i < s.length(); i++) {
+		if (s[i] > 'Z') {
+			s[i] -= 32;
+		}
+	}
+	return s;
 }

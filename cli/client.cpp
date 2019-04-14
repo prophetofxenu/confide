@@ -113,7 +113,7 @@ void init(CURL *curl) {
 					(*j)["name"] = name;
 					get(curl, std::string("config"), rd, j);
 					response = json::parse(rd->mem);
-					if (response["result"] == -1 || response["message"]) {
+					if (response["result"] == -1) {
 						std::cout << "File transfer incomplete" << std::endl;
 					} else {
 						std::cout << "File transfer complete" << std::endl;
@@ -237,7 +237,9 @@ bool post(CURL *curl, std::string dest, struct resdata *rd, json* j) {
 	struct curl_slist *list = nullptr;
 	list = curl_slist_append(list, "Content-Type: application/json; charset=utf-8");
 
-	curl_easy_setopt(curl, CURLOPT_URL, PAPA_URL + dest);
+	std::string full_dest = PAPA_URL + "/" + dest;
+
+	curl_easy_setopt(curl, CURLOPT_URL, full_dest.c_str());
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_callback);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, static_cast<void *>(rd));

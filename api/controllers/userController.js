@@ -127,7 +127,8 @@ function hashPasswordAndLogin(password, configName, callback) {
 function getConfig(user, configName, callback) {
 
     var config = null;
-    for (c of configs) {
+    console.log(user);
+    for (c of user.configs) {
         if (c.name == configName) {
             config = c;
         }
@@ -141,7 +142,9 @@ function getConfig(user, configName, callback) {
 
 exports.getConf = function(req, res, next) {
 
-    getUser(req.body.username, req.body.password, req.body.configName, function(err, result) {
+    var j = JSON.parse(req.params.json);
+
+    getUser(j.username, j.password, j.configName, function(err, result) {
 
         if (err) { return next(err); }
 
@@ -150,26 +153,106 @@ exports.getConf = function(req, res, next) {
                 result: result,
                 message: "User not found"
             });
-        }
-        if (result == -2) {
+        } else if (result == -2) {
             res.json({
                 result: result,
                 message: "Wrong password"
             });
-        }
-        if (result == -3) {
+        } else if (result == -3) {
             res.json({
                 result: result,
                 message: "Config file not found"
             });
+        } else if (result == 0) {
+            res.json({
+                result: 0,
+                path: result.path,
+                content: content
+            });
         }
+    });
 
-        res.json({
-            result: 0,
-            path: result.path,
-            content: content
-        });
+}
 
+function getUserConfigs(username, password, callback) {
+
+    User.find({
+        username: username
+    })
+    .populate('configs')
+    .exec(getUserConfigsAuth(password, callback));
+
+}
+
+function getUserConfigsAuth(password, callback) {
+
+    return function(err, result) {
+        if (err) { console.log(err); }
+
+        if (result.length == 0) {
+            callback(null, -1); // user not found
+        } else {
+            var user = result[0];
+            bcrypt.compare(password, user.password, validateAuthAndGetConfigs(user, callback));
+        }
+    }
+
+}
+
+function validateAuthAndGetConfigs(user, callback) {
+
+    return function(err, result) {
+
+        if (err) { console.log(err); }
+
+        if (result) {
+            callback(null, user);
+        } else {
+            callback(null, -2); // wrong password
+        }
+    }
+
+}
+
+exports.addConf = function(req, res, next) {
+
+    getUserConfigs(req.body.username, req.body.password, function(err, result) {
+        if (err) { return next(err); }
+
+        if (result == -1) { // user not found
+            res.json({
+                result: -1,
+                message: "User not found"
+            });
+        } else if (result == -2) {
+            res.json({
+                result: -2,
+                message: "Invalid password"
+            });
+        } else {
+
+            var config = new Config({
+                name: req.body.name,
+                path: req.body.path,
+                content: req.body.content,
+                created: new Date(),
+                modified: new Date()
+            });
+
+            config.save(function(err) {
+                if (err) { return next(err); }
+
+                result.configs.push(config._id);
+                User.findByIdAndUpdate(result._id, result, {}, function(err, result) {
+                    if (err) { return next(err); }
+
+                    res.json({
+                        result: 0
+                    });
+                });
+            });
+
+        }
     });
 
 }

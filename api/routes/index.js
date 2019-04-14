@@ -8,7 +8,9 @@ router.get('/', function(req, res, next) {
   res.render('index', { title: 'Express' });
 });
 
-router.get('/config', userController.getConf);
+router.get('/config/:json', userController.getConf);
+
+router.post('/addconfig', userController.addConf);
 
 router.post('/newuser', userController.newUser);
 

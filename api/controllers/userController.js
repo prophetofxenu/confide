@@ -202,8 +202,9 @@ function getConfig(user, configName, callback) {
     }
     if (config == null) {
         callback(null, -3); // config doesnt exist
+    } else {
+        callback(null, config);
     }
-    callback(null, config);
 
 }
 

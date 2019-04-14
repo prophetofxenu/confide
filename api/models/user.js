@@ -10,7 +10,7 @@ var UserSchema = new Schema(
         email: { type: String, required: true },
         created: { type: Date, required: true },
         lastlogin: { type: Date, required: true },
-        configs: [{ type: Schema.Types.ObjectId, required: true }]
+        configs: [{ type: Schema.Types.ObjectId, required: true, ref: 'Config'}]
     }
 );
 

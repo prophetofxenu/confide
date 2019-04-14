@@ -127,7 +127,6 @@ function hashPasswordAndLogin(password, configName, callback) {
 function getConfig(user, configName, callback) {
 
     var config = null;
-    console.log(user);
     for (c of user.configs) {
         if (c.name == configName) {
             config = c;
@@ -144,9 +143,11 @@ exports.getConf = function(req, res, next) {
 
     var j = JSON.parse(req.params.json);
 
-    getUser(j.username, j.password, j.configName, function(err, result) {
+    getUser(j.username, j.password, j.name, function(err, result) {
 
         if (err) { return next(err); }
+
+        console.log('get user');
 
         if (result == -1) {
             res.json({
@@ -163,11 +164,11 @@ exports.getConf = function(req, res, next) {
                 result: result,
                 message: "Config file not found"
             });
-        } else if (result == 0) {
+        } else {
             res.json({
                 result: 0,
                 path: result.path,
-                content: content
+                content: result.content
             });
         }
     });

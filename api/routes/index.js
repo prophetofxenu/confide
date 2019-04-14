@@ -14,6 +14,8 @@ router.get('/config/:json', userController.getConf);
 
 router.post('/addconfig', userController.addConf);
 
+router.post('/deleteconfig', userController.deleteConf);
+
 router.post('/newuser', userController.newUser);
 
 router.get('/validuser/:json', userController.validUser);

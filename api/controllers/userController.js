@@ -351,6 +351,101 @@ exports.addConf = function(req, res, next) {
 
 }
 
+function getUserAndDeleteConfig(username, password, name, callback) {
+
+    User.find({ username: username })
+    .populate('configs')
+    .exec(authenticateAndDeleteConfig(password, name, callback));
+
+}
+
+function authenticateAndDeleteConfig(password, name, callback) {
+
+    return function(err, result) {
+        if (err) { console.log(err); }
+
+        if (result.length == 0) { // user not found
+            callback(null, -1);
+        } else {
+            var user = result[0];
+            bcrypt.compare(password, user.password, verifyAuthenticationAndDeleteConfig(user, name, callback));
+        }
+    }
+
+}
+
+function verifyAuthenticationAndDeleteConfig(user, name, callback) {
+
+    return function (err, result) {
+        if (err) { console.log(err); }
+
+        if (!result) { // wrong password
+            callback(null, -2);
+        } else {
+            var config = null;
+            for (c of user.configs) {
+                if (c.name == name) {
+                    config = c;
+                }
+            }
+            console.log(config);
+            if (config == null) {
+                callback(null, -3); // config not found
+            } else {
+                callback(null, { user: user, config: config});
+            }
+        }
+    }
+
+}
+
+exports.deleteConf = function(req, res, next) {
+
+    getUserAndDeleteConfig(req.body.username, req.body.password, req.body.name, function(err, result) {
+
+        if (err) { return next(err); }
+
+        if (result == -1) { // user not found
+            res.json({
+                result: result,
+                message: "User not found"
+            });
+        } else if (result == -2) { // wrong password
+            res.json({
+                result: result,
+                message: "Wrong password"
+            });
+        } else if (result == -3) {
+            res.json({
+                result: result,
+                message: "Config not found"
+            });
+        } else {
+
+            var confId = result.config._id;
+
+            Config.findOneAndRemove({ _id: result.config._id }, function(err) {
+                if (err) { return next(err); }
+
+                    var index = result.user.configs.indexOf(confId);
+                    console.log(index);
+                    result.user.configs.splice(index, 1);
+
+                    User.findOneAndUpdate({ _id: result.user._id }, { configs: result.user.configs }, function(err) {
+                        if(err) { return next(err); }
+
+                        res.json({
+                            result: 0
+                        })
+                    })
+
+            });
+
+        }
+    });
+
+}
+
 function findUserAndCheckIfValid(username, password, email, callback) {
 
     if (email == null) {
